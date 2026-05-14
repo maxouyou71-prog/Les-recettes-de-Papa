@@ -30,13 +30,13 @@
 </header>
 
 <main>
-    <input type="text" id="search" class="search-bar" placeholder="Rechercher une recette parmi vos 300 créations...">
+    <input type="text" id="search" class="search-bar" placeholder="Rechercher une recette...">
     
     <div class="categories" id="category-filters">
         <button class="cat-btn active" onclick="filterByCat('Toutes')">🍽️ Toutes</button>
     </div>
 
-    <div id="loader">Mise à jour de la bibliothèque culinaire...</div>
+    <div id="loader">Mise à jour de la bibliothèque...</div>
     <div class="grid" id="recipe-grid"></div>
 </main>
 
@@ -49,13 +49,11 @@
         try {
             const response = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents/`);
             const items = await response.json();
-            // On ne prend que les dossiers (vos catégories)
             const folders = items.filter(item => item.type === "dir").sort((a, b) => a.name.localeCompare(b.name));
 
             const filterContainer = document.getElementById('category-filters');
             
             for (const folder of folders) {
-                // Créer le bouton de filtre sans le numéro (ex: "Entrées" au lieu de "05- Entrées")
                 const cleanName = folder.name.replace(/^\d+-\s*/, '');
                 const btn = document.createElement('button');
                 btn.className = 'cat-btn';
@@ -63,17 +61,20 @@
                 btn.onclick = () => filterByCat(folder.name);
                 filterContainer.appendChild(btn);
 
-                // Chercher les PDF dans chaque dossier
                 const resFiles = await fetch(folder.url);
                 const files = await resFiles.json();
                 
                 files.forEach(file => {
                     if (file.name.toLowerCase().endsWith('.pdf')) {
+                        // On crée l'URL de consultation via le lecteur Google
+                        const rawUrl = `https://raw.githubusercontent.com/${USER}/${REPO}/main/${encodeURIComponent(folder.name)}/${encodeURIComponent(file.name)}`;
+                        const viewerUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(rawUrl)}&embedded=true`;
+
                         allRecipes.push({
                             name: file.name.replace('.pdf', '').replace(/_/g, ' ').replace(/-/g, ' '),
                             category: folder.name,
                             displayName: cleanName,
-                            url: `https://raw.githubusercontent.com/${USER}/${REPO}/main/${encodeURIComponent(folder.name)}/${encodeURIComponent(file.name)}`
+                            url: viewerUrl
                         });
                     }
                 });
@@ -82,7 +83,7 @@
             document.getElementById('loader').style.display = 'none';
             render();
         } catch (error) {
-            document.getElementById('loader').innerText = "Erreur : Impossible de charger les recettes. Vérifiez votre connexion.";
+            document.getElementById('loader').innerText = "Erreur de chargement.";
         }
     }
 
@@ -102,10 +103,6 @@
                 <h3>${r.name}</h3>
             </div>
         `).join('');
-        
-        if(filtered.length === 0 && allRecipes.length > 0) {
-            grid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: gray;">Aucune recette trouvée pour cette recherche.</p>';
-        }
     }
 
     function filterByCat(cat) {
@@ -117,7 +114,7 @@
         render(cat);
     }
 
-    document.getElementById('search').oninput = () => render(document.querySelector('.cat-btn.active').innerText === "🍽️ Toutes" ? "Toutes" : allRecipes.find(r => r.displayName === document.querySelector('.cat-btn.active').innerText).category);
+    document.getElementById('search').oninput = () => render();
 
     init();
 </script>
