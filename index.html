@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Les Recettes de Papa</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cream: #fdf6ec; --warm-brown: #5c3d2e; --orange: #e07b39;
+      --light-orange: #f5c18a; --dark: #2a1a0e; --gray: #8a7060;
+      --card-bg: #fff9f2; --shadow: 0 4px 24px rgba(92,61,46,0.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--cream); font-family: 'Lato', sans-serif; color: var(--dark); min-height: 100vh; }
+    header { background: var(--warm-brown); padding: 2.5rem 2rem 2rem; text-align: center; }
+    header h1 { font-family: 'Playfair Display', serif; font-size: clamp(2rem, 6vw, 3.2rem); color: var(--cream); }
+    header h1 em { color: var(--light-orange); font-style: italic; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 2rem; }
+    .search-wrap { flex: 1; min-width: 200px; }
+    .search-wrap input { width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--light-orange); border-radius: 50px; outline: none; }
+    .upload-btn { background: var(--orange); color: white; border: none; border-radius: 50px; padding: 0.75rem 1.5rem; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .categories { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.8rem; }
+    .cat-btn { background: white; border: 2px solid var(--light-orange); border-radius: 50px; padding: 0.4rem 1.1rem; cursor: pointer; color: var(--warm-brown); font-weight: 700; }
+    .cat-btn.active { background: var(--orange); border-color: var(--orange); color: white; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.5rem; }
+    .card { background: var(--card-bg); border-radius: 16px; box-shadow: var(--shadow); padding: 1.4rem; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; gap: 0.6rem; }
+    .card:hover { transform: translateY(-4px); }
+    .cat-tag { background: var(--light-orange); color: var(--warm-brown); border-radius: 50px; padding: 0.2rem 0.8rem; font-size: 0.75rem; font-weight: 700; align-self: flex-start; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Les Recettes de <em>Papa</em></h1>
+</header>
+
+<main>
+  <div class="toolbar">
+    <div class="search-wrap">
+      <input type="text" id="search" placeholder="Rechercher une recette..."/>
+    </div>
+    <button class="upload-btn" id="add-recipe-btn">➕ Ajouter une recette via Google Drive</button>
+  </div>
+
+  <div class="categories" id="categories-list">
+    <button class="cat-btn active" data-cat="Toutes">🍽️ Toutes</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</main>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+  // Vos clés Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyDUnxWwgy_UtOWMq9LU_3RM8SlWpz6i1Z4",
+    authDomain: "les-recettes-de-papa.firebaseapp.com",
+    projectId: "les-recettes-de-papa",
+    storageBucket: "les-recettes-de-papa.firebasestorage.app",
+    messagingSenderId: "267393123891",
+    appId: "1:267393123891:web:5117a62b65346e64cf0546"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const categories = [
+    "Apéritifs et liqueurs", "Amuses-bouche et apéro", "Sauces", "Soupes", "Entrées", 
+    "Œufs", "Viandes", "Poissons", "Accompagnements", "Plats", "Recettes allégées", 
+    "Fast-food", "Fromages", "Desserts", "Crèmes et compotes", "Garnitures desserts", 
+    "Glaces", "Pâtes sucrées ou salées", "Pains", "Astuces en cuisine"
+  ];
+
+  let allRecipes = [];
+  const grid = document.getElementById('grid');
+
+  // Génération des boutons de catégories
+  const catList = document.getElementById('categories-list');
+  categories.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-btn';
+    btn.textContent = cat;
+    btn.onclick = () => {
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render(cat);
+    };
+    catList.appendChild(btn);
+  });
+
+  // Lecture des données en temps réel depuis Firestore
+  onSnapshot(query(collection(db, "recipes"), orderBy("date", "desc")), (snapshot) => {
+    allRecipes = snapshot.docs.map(doc => doc.data());
+    render('Toutes');
+  });
+
+  function render(filter = 'Toutes') {
+    const search = document.getElementById('search').value.toLowerCase();
+    const filtered = allRecipes.filter(r => 
+      (filter === 'Toutes' || r.category === filter) && 
+      r.name.toLowerCase().includes(search)
+    );
+
+    grid.innerHTML = filtered.map(r => `
+      <div class="card" onclick="window.open('${r.url}', '_blank')">
+        <span class="cat-tag">${r.category}</span>
+        <h3>${r.name}</h3>
+        <p style="font-size:0.8rem; color:gray">${r.date}</p>
+      </div>
+    `).join('');
+  }
+
+  // Ajout d'une nouvelle recette (via lien Google Drive)
+  document.getElementById('add-recipe-btn').onclick = async () => {
+    const name = prompt("Nom de la recette :");
+    if (!name) return;
+    
+    const url = prompt("Collez le lien de partage Google Drive :");
+    if (!url) return;
+
+    const cat = prompt("Catégorie :\n" + categories.join(', '));
+    if (!categories.includes(cat)) { alert("Catégorie invalide"); return; }
+
+    try {
+      await addDoc(collection(db, "recipes"), {
+        name: name,
+        url: url,
+        category: cat,
+        date: new Date().toLocaleDateString('fr-FR')
+      });
+      alert("✅ Recette ajoutée avec succès !");
+    } catch (e) {
+      alert("Erreur lors de l'ajout : " + e.message);
+    }
+  };
+
+  document.getElementById('search').oninput = () => render();
+</script>
+
+</body>
+</html>
