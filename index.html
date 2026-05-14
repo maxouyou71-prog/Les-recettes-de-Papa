@@ -41,6 +41,7 @@
 <script>
     const USER = "maxouyou71-prog";
     const REPO = "Les-recettes-de-Papa";
+    const BRANCH = "main"; // ← Changez en "master" si votre branche principale s'appelle "master"
     let allRecipes = [];
 
     async function init() {
@@ -65,8 +66,8 @@
                 
                 files.forEach(file => {
                     if (file.name.toLowerCase().endsWith('.pdf')) {
-                        // URL directe GitHub pour éviter le téléchargement forcé quand possible
-                        const pdfUrl = `https://maxouyou71-prog.github.io/Les-recettes-de-Papa/${encodeURIComponent(folder.name)}/${encodeURIComponent(file.name)}`;
+                        // ✅ URL raw GitHub — fonctionne toujours sans configuration supplémentaire
+                        const pdfUrl = `https://raw.githubusercontent.com/${USER}/${REPO}/${BRANCH}/${encodeURIComponent(folder.name)}/${encodeURIComponent(file.name)}`;
                         
                         allRecipes.push({
                             name: file.name.replace('.pdf', '').replace(/_/g, ' ').replace(/-/g, ' '),
