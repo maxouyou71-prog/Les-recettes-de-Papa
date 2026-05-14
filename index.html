@@ -10,15 +10,17 @@
 <body>
 
 <header>
-    <h1>Les Recettes de Papa</h1>
+    <h1>👨‍🍳 Les Recettes de Papa 📖</h1>
 </header>
 
 <main>
     <input type="text" id="search" class="search-bar" placeholder="Rechercher une recette...">
+    
     <div class="categories" id="category-filters">
-        <button class="cat-btn active" onclick="filterByCat('Toutes')">Toutes</button>
+        <button class="cat-btn active" onclick="filterByCat('Toutes')">🍽️ Toutes</button>
     </div>
-    <div id="loader">Chargement des recettes...</div>
+
+    <div id="loader">Chargement de vos recettes...</div>
     <div class="grid" id="recipe-grid"></div>
 </main>
 
@@ -29,8 +31,11 @@
 
     async function init() {
         try {
+            // Utilisation de l'URL directe qui fonctionnait sur vos captures
             const response = await fetch(`https://api.github.com/repos/${USER}/${REPO}/contents`);
+            if (!response.ok) throw new Error();
             const items = await response.json();
+            
             const folders = items.filter(item => item.type === "dir").sort((a, b) => a.name.localeCompare(b.name));
             const filterContainer = document.getElementById('category-filters');
             
@@ -48,6 +53,7 @@
                 files.forEach(file => {
                     if (file.name.toLowerCase().endsWith('.pdf')) {
                         const pdfUrl = `https://raw.githubusercontent.com/${USER}/${REPO}/main/${encodeURIComponent(folder.name)}/${encodeURIComponent(file.name)}`;
+                        
                         allRecipes.push({
                             name: file.name.replace('.pdf', '').replace(/_/g, ' ').replace(/-/g, ' '),
                             category: folder.name,
@@ -57,23 +63,27 @@
                     }
                 });
             }
+
             document.getElementById('loader').style.display = 'none';
             render();
         } catch (error) {
-            document.getElementById('loader').innerHTML = "Erreur de connexion.";
+            document.getElementById('loader').innerHTML = "<b style='color:red;'>❌ Erreur de connexion.</b><br>Vérifiez vos fichiers sur GitHub.";
         }
     }
 
     function render(filter = "Toutes") {
         const searchTerm = document.getElementById('search').value.toLowerCase();
         const grid = document.getElementById('recipe-grid');
+        
         const filtered = allRecipes.filter(r => {
             const matchCat = (filter === "Toutes" || r.category === filter);
-            return matchCat && r.name.toLowerCase().includes(searchTerm);
+            const matchSearch = r.name.toLowerCase().includes(searchTerm);
+            return matchCat && matchSearch;
         });
+
         grid.innerHTML = filtered.map(r => `
             <div class="card" onclick="window.open('${r.url}', '_blank')">
-                <div class="tag">${r.displayName}</div>
+                <div class="tag">📁 ${r.displayName}</div>
                 <h3>${r.name}</h3>
             </div>
         `).join('');
@@ -83,7 +93,7 @@
         document.querySelectorAll('.cat-btn').forEach(btn => {
             const btnText = btn.innerText;
             const compareText = cat.replace(/^\d+-\s*/, '');
-            btn.classList.toggle('active', (cat === "Toutes" && btnText === "Toutes") || compareText === btnText);
+            btn.classList.toggle('active', (cat === "Toutes" && btnText === "🍽️ Toutes") || compareText === btnText);
         });
         render(cat);
     }
